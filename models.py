@@ -2,11 +2,12 @@ from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, Float, Date
 from sqlalchemy.orm import relationship
 from database import Base
 import datetime
+import uuid
 
 class Users(Base):
     __tablename__ = 'users'
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(String, primary_key=True, index=True, default=lambda: str(uuid.uuid4()))
     email = Column(String, unique=True, index=True)
     username = Column(String, unique=True, index=True)
     first_name = Column(String)
@@ -52,7 +53,7 @@ class Booking(Base):
     __tablename__ = 'bookings'
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey('users.id'))
+    user_id = Column(String, ForeignKey('users.id'))
     service_id = Column(Integer, ForeignKey('services.id'))
     status = Column(String, index=True, default='PENDING')  # PENDING, CONFIRMED, CANCELLED
     booking_datetime = Column(DateTime, index=True)
