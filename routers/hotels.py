@@ -1,35 +1,32 @@
-from fastapi import APIRouter, Depends, Query, Header, HTTPException, status
+from fastapi import APIRouter, Depends, Query, HTTPException, status
 from sqlalchemy.orm import Session
 from database import get_db
 from models import Service, LocalProvider
 from utils.ranking import calculate_ranking_score
 from typing import List, Optional
-import os
+from internal_auth import verify_internal_key
+import hashlib
+from utils.cache import get_cache, set_cache
 
 router = APIRouter(prefix="/hotels", tags=["hotels"])
 
-INTERNAL_SECRET = os.getenv("INTERNAL_API_KEY", "arthik-internal-agent-secret-key")
-
-async def verify_internal_key(x_internal_key: str = Header(..., alias="X-Internal-Key")):
-    if x_internal_key != INTERNAL_SECRET:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Unauthorized: Invalid Internal API Key"
-        )
-
-@router.get("/search")
-def search_hotels(
+def perform_hotel_search(
+    db: Session,
     location: Optional[str] = None,
     budget_min: float = 0.0,
     budget_max: float = 1000000.0,
     rating_min: float = 0.0,
     facilities: Optional[str] = None,
-    checkin: Optional[str] = None,
-    checkout: Optional[str] = None,
-    lang: str = "en",
-    db: Session = Depends(get_db),
-    _auth: bool = Depends(verify_internal_key)
 ):
+    # Construct a cache key
+    raw_key = f"{location}_{budget_min}_{budget_max}_{rating_min}_{facilities}"
+    cache_key = "hotel_search:" + hashlib.md5(raw_key.encode()).hexdigest()
+    
+    # Try fetching from cache
+    cached_data = get_cache(cache_key)
+    if cached_data:
+        return cached_data
+
     query = db.query(Service).join(LocalProvider)
     
     if location:
@@ -42,15 +39,15 @@ def search_hotels(
     
     results = query.all()
     
-    # Calculate scores and rank
+    if not results:
+        set_cache(cache_key, [], ttl_minutes=15)
+        return []
+    
     requested_facilities = facilities.split(",") if facilities else []
     criteria = {
         "location": location or "",
         "facilities": requested_facilities
     }
-    
-    if not results:
-        return []
     
     prices = [r.price for r in results]
     p_min = min(prices)
@@ -74,7 +71,33 @@ def search_hotels(
             "score": score
         })
     
-    # Sort by score descending
     scored_results.sort(key=lambda x: x["score"], reverse=True)
+    final_results = scored_results[:20]
     
-    return scored_results[:20]
+    # Store results in cache
+    set_cache(cache_key, final_results, ttl_minutes=15)
+    
+    return final_results
+
+
+@router.get("/search")
+def search_hotels(
+    location: Optional[str] = None,
+    budget_min: float = 0.0,
+    budget_max: float = 1000000.0,
+    rating_min: float = 0.0,
+    facilities: Optional[str] = None,
+    checkin: Optional[str] = None,
+    checkout: Optional[str] = None,
+    lang: str = "en",
+    db: Session = Depends(get_db),
+    _auth: bool = Depends(verify_internal_key)
+):
+    return perform_hotel_search(
+        db=db,
+        location=location,
+        budget_min=budget_min,
+        budget_max=budget_max,
+        rating_min=rating_min,
+        facilities=facilities
+    )
