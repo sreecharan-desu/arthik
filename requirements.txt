@@ -9,10 +9,10 @@ python-multipart
 requests
 openai
 python-dotenv
-python-multipart
 websockets
 pytest
 pytest-asyncio
 httpx
 alembic
-python-jose
+pydantic
+pydantic-settings
