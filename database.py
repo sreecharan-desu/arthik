@@ -32,7 +32,7 @@ if DATABASE_URL.startswith("postgres://") or DATABASE_URL.startswith("postgresql
     ssl_context = ssl.create_default_context()
     ssl_context.check_hostname = False
     ssl_context.verify_mode = ssl.CERT_NONE
-    connect_args["context"] = ssl_context
+    connect_args["ssl_context"] = ssl_context
 
 engine = create_engine(DATABASE_URL, connect_args=connect_args)
 
