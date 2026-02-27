@@ -1,0 +1,9 @@
+Traceback (most recent call last):
+  File "/Users/sreecharandesu/Projects/Arthik/main.py", line 3, in <module>
+    import models
+  File "/Users/sreecharandesu/Projects/Arthik/models.py", line 3, in <module>
+    from database import Base
+  File "/Users/sreecharandesu/Projects/Arthik/database.py", line 36, in <module>
+    connect_args["ssl_context"] = ssl_context
+    ^^^^^^^^^^^^
+NameError: name 'connect_args' is not defined

@@ -26,11 +26,7 @@ summarizer = ChatOpenAI(base_url="https://inference.baseten.co/v1", model="opena
 llm = ChatOpenAI(base_url="https://inference.baseten.co/v1", model="moonshotai/Kimi-K2-Instruct-0905", api_key=baseten_api_key)
 
 
-try:
-    serper = GoogleSerperAPIWrapper()
-except Exception:
-    serper = None
-    print("WARNING: GoogleSerperAPIWrapper failed to initialize.")
+serper = GoogleSerperAPIWrapper()
 
 @tool
 def search_places(query: str) -> str:
@@ -220,45 +216,46 @@ async def generate_chat_responses(message: str, user_data: dict, checkpoint_id: 
             event_type = event["event"]
             node_name = event.get("metadata", {}).get("langgraph_node")
 
-            # 1. Handle streaming the actual text response back to the user
             if event_type == "on_chat_model_stream" and node_name == "chatbot":
                 chunk_content = serialise_ai_message_chunk(event["data"]["chunk"])
-                safe_content = chunk_content.replace("'", "\\'").replace("\n", "\\n").replace('"', '\\"')
+                # Escape single quotes and newlines for safe JSON parsing
+                safe_content = chunk_content.replace("'", "\\'").replace("\n", "\\n")
+
                 yield f"data: {{\"type\": \"content\", \"content\": \"{safe_content}\"}}\n\n"
             
-            # 2. Detect when the LLM decides to call a tool
             elif event_type == "on_chat_model_end" and node_name == "chatbot":
+                # Check if there are tool calls for search
                 tool_calls = event["data"]["output"].tool_calls if hasattr(event["data"]["output"], "tool_calls") else []
-                
-                # Check if it called the Website Fetcher
-                website_calls = [call for call in tool_calls if call["name"] == "fetch_website_content"]
-                if website_calls:
-                    search_query = website_calls[0]["args"].get("query", "")
+                search_calls = [call for call in tool_calls if call["name"] == "search_places"]
+
+                if search_calls:
+                    # Signal that search is string
+                    search_query = search_calls[0]["args"].get("query", "")
+                    # Escape quotes and special characters
                     safe_query = search_query.replace('"', '\\"').replace("'", "\\'").replace("\n", "\\n")
                     yield f"data: {{\"type\": \"search_start\", \"query\": \"{safe_query}\"}}\n\n"
-                
-                # Check if it called the Google Search tool
-                google_calls = [call for call in tool_calls if call["name"] == "search_places"]
-                if google_calls:
-                    google_query = google_calls[0]["args"].get("query", "")
-                    safe_google_query = google_query.replace('"', '\\"').replace("'", "\\'").replace("\n", "\\n")
-                    yield f"data: {{\"type\": \"google_search_start\", \"query\": \"{safe_google_query}\"}}\n\n"
             
-            # 3. Detect when a tool finishes executing
-            elif event_type == "on_tool_end":
+            elif event_type == "on_tool_end" and event["name"] == "search_places":
+                # Search Completed - send results or error
+                # output = event["data"]["output"]
+                print("Tool output:", event["data"]["output"])
+                print("Tool Input:", event["data"]["input"])
+                urls = event["data"]["input"].get("url", "Nothing")
+
+                # # Check if output is a list
                 
-                # If Website Fetcher finished
-                if event["name"] == "fetch_website_content":
-                    urls = event["data"]["input"].get("url", "Nothing")
-                    urls_json = json.dumps(urls)
-                    yield f"data: {{\"type\": \"search_results\", \"urls\": {urls_json}}}\n\n"
-                
-                # If Google Search finished
-                elif event["name"] == "search_places":
-                    query_searched = event["data"]["input"].get("query", "Unknown query")
-                    safe_query_searched = query_searched.replace('"', '\\"').replace("'", "\\'").replace("\n", "\\n")
-                    # Send a signal to the frontend that the search completed
-                    yield f"data: {{\"type\": \"google_search_results\", \"query\": \"{safe_query_searched}\"}}\n\n"
+                # if isinstance(output, list):
+                #     # Extract URLs from list of search results
+                #     urls = []
+                #     for item in output:
+                #         if isinstance(item, dict) and "url" in item:
+                #             urls.append(item["url"])     
+
+                #     # Convert URLs to JSON and yield them
+                #     urls_json = json.dumps(urls)
+                #     yield f"data: {{\"type\": \"search_results\", \"urls\": {urls_json}}}\n\n"
+                urls_json = json.dumps(urls)
+                yield f"data: {{\"type\": \"search_results\", \"task\": \"completed\"}}\n\n"
         
-        # 4. End of the complete stream
+        # Send an event
         yield f"data: {{\"type\": \"end\"}}\n\n"
