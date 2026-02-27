@@ -55,36 +55,45 @@ async def book_best_hotel(location: str, config: RunnableConfig) -> str:
     Do NOT offer a list of hotels first. Just call this tool.
     
     Args:
-        location: The city or area the user wants to stay in (e.g., "Delhi", "Mumbai").
+        location: The city or area the user wants to stay in.
     """
     user_id = config.get("configurable", {}).get("user_id")
+    print(f"\n--- [TOOL LOG] Booking triggered for: {location} | User ID: {user_id} ---")
+    
     internal_api_key = os.getenv("INTERNAL_API_KEY", "arthik-internal-agent-secret-key")
     base_url = os.getenv("BACKEND_URL", "https://arthik-omega.vercel.app")
     
     async with httpx.AsyncClient() as client:
         try:
-            # 1. Search for hotels in the requested location
+            # 1. Search Hotels
             search_res = await client.get(f"{base_url}/hotels/search?location={location}&lang=en")
             hotels = search_res.json()
             
             if not hotels:
+                print("[TOOL LOG] Error: No hotels found.")
                 return json.dumps({"status": "error", "message": f"No hotels found in {location}."})
             
-            best_hotel = hotels[0]["service"] # Top scored hotel
+            best_hotel = hotels[0]["service"]
+            print(f"[TOOL LOG] Found best hotel: {best_hotel['name']} (ID: {best_hotel['id']})")
             
-            # 2. Initiate Booking
+            # 2. Book Hotel
             booking_payload = {
                 "user_id": str(user_id),
                 "service_id": best_hotel["id"],
                 "booking_datetime": (datetime.now() + timedelta(days=1)).isoformat(),
                 "special_requests": "Autonomous Agent Booking"
             }
-            
             headers = {"X-Internal-Key": internal_api_key}
+            
+            print(f"[TOOL LOG] Sending Payload to /booking: {booking_payload}")
             booking_res = await client.post(f"{base_url}/booking", json=booking_payload, headers=headers)
+            
+            print(f"[TOOL LOG] /booking API Response Status: {booking_res.status_code}")
+            print(f"[TOOL LOG] /booking API Response Body: {booking_res.text}")
             
             if booking_res.status_code == 200:
                 booking_data = booking_res.json()
+                print("[TOOL LOG] ✅ Booking Successful!")
                 return json.dumps({
                     "status": "success",
                     "hotel_name": best_hotel["name"],
@@ -92,9 +101,12 @@ async def book_best_hotel(location: str, config: RunnableConfig) -> str:
                     "payu_payload": booking_data.get("payu_payload")
                 })
             else:
-                return json.dumps({"status": "error", "message": "Booking failed."})
+                # Tell the LLM EXACTLY what failed
+                error_msg = f"API Error {booking_res.status_code}: {booking_res.text}"
+                return json.dumps({"status": "error", "message": error_msg})
                 
         except Exception as e:
+            print(f"[TOOL LOG] Exception: {str(e)}")
             return json.dumps({"status": "error", "message": str(e)})
 
 tools = [search_places, book_best_hotel]
@@ -120,10 +132,19 @@ async def tools_router(state: State):
 from langchain_core.runnables import RunnableConfig
 from langchain_core.messages import ToolMessage
 
+
 async def tool_node(state: State, config: RunnableConfig):
     """Custom tool node that handles tool calls from the LLM"""
     tool_calls = state["messages"][-1].tool_calls
     tool_messages = []
+    
+    # --- NEW: Grab the user_id from the graph's State ---
+    user_id = state.get("user_data", {}).get("id")
+    
+    # Ensure configurable dict exists, then inject the user_id
+    if "configurable" not in config:
+        config["configurable"] = {}
+    config["configurable"]["user_id"] = user_id
 
     for tool_call in tool_calls:
         tool_name = tool_call["name"]
@@ -131,7 +152,6 @@ async def tool_node(state: State, config: RunnableConfig):
         tool_id = tool_call["id"]
 
         if tool_name == "search_places":
-            # Synchronous execution for the existing serper tool
             tool_result = search_places.invoke(tool_args)
             tool_message = ToolMessage(
                 content=str(tool_result),
@@ -141,8 +161,7 @@ async def tool_node(state: State, config: RunnableConfig):
             tool_messages.append(tool_message)
             
         elif tool_name == "book_best_hotel":
-            # Asynchronous execution for the new booking tool
-            # We pass the config so the tool can extract the user_id
+            # Now, when we pass config, it contains the user_id!
             tool_result = await book_best_hotel.ainvoke(tool_args, config=config)
             tool_message = ToolMessage(
                 content=str(tool_result),
@@ -268,7 +287,6 @@ async def generate_chat_responses(message: str, user_data: dict, checkpoint_id: 
     config = {
         "configurable": {
             "thread_id": checkpoint_id,
-            "user_id": user_data.get("id")
         }
     }
     state_input = {
