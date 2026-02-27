@@ -12,6 +12,9 @@ except ImportError:
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 
+# SQLite fix for multi-threading
+connect_args = {}
+
 if not DATABASE_URL:
     DATABASE_URL = "sqlite:///:memory:"
     connect_args = {"check_same_thread": False}
