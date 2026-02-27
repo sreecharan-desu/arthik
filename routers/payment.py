@@ -8,7 +8,46 @@ import hashlib
 import os
 import urllib.parse
 
+from pydantic import BaseModel
+
 router = APIRouter(prefix="/payment", tags=["payment"])
+
+class InitiatePayment(BaseModel):
+    amount: float
+    email: str
+    name: str
+    phone: str
+    orderId: str
+    
+@router.post("/initiate")
+async def initiate_payment(payment_in: InitiatePayment):
+    """
+    Direct initiation endpoint mirroring the TypeScript structure.
+    Useful for manual triggers or frontend-driven payment flows.
+    """
+    merchant_key = os.getenv("PAYU_MERCHANT_KEY", "")
+    salt = os.getenv("PAYU_MERCHANT_SALT", "")
+    txnid = f"TXN_{payment_in.orderId}_{int(os.getpid())}"
+    amount_str = f"{payment_in.amount:.2f}"
+    
+    # Hash sequence: key|txnid|amount|productinfo|firstname|email|udf1|udf2|udf3|udf4|udf5||||||salt
+    hash_string = f"{merchant_key}|{txnid}|{amount_str}|{payment_in.orderId}|{payment_in.name}|{payment_in.email}|{payment_in.orderId}||||||||||{salt}"
+    payment_hash = hashlib.sha512(hash_string.encode()).hexdigest()
+    
+    return {
+        "key": merchant_key,
+        "txnid": txnid,
+        "amount": amount_str,
+        "productinfo": payment_in.orderId,
+        "firstname": payment_in.name,
+        "email": payment_in.email,
+        "phone": payment_in.phone,
+        "udf1": payment_in.orderId,
+        "surl": os.getenv("PAYU_SUCCESS_URL"),
+        "furl": os.getenv("PAYU_FAILURE_URL"),
+        "hash": payment_hash,
+        "service_provider": "payu_paisa"
+    }
 
 def verify_payu_hash(form_data: dict, salt: str) -> bool:
     status = form_data.get("status", "")
