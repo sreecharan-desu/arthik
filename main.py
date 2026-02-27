@@ -23,7 +23,6 @@ app.include_router(hotels.router)
 app.include_router(booking.router)
 app.include_router(payment.router)
 app.include_router(vendor.router)
-app.include_router(chat.router)
 app.include_router(users.router)
 app.include_router(agent.router)
 
