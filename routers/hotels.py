@@ -90,8 +90,7 @@ def search_hotels(
     checkin: Optional[str] = None,
     checkout: Optional[str] = None,
     lang: str = "en",
-    db: Session = Depends(get_db),
-    _auth: bool = Depends(verify_internal_key)
+    db: Session = Depends(get_db)
 ):
     return perform_hotel_search(
         db=db,
