@@ -63,7 +63,7 @@ graph TD
     RouterPayment --> S3
 
     %% Styling
-    style User fill:#f9f,stroke:#333,stroke-width:2px
+    style User fill:#f0f0f0,stroke:#333,stroke-width:2px
     style Frontend fill:#fff,stroke:#666,stroke-width:2px
     style API fill:#69f,stroke:#333,stroke-width:3px
     style Postgres fill:#4CAF50,stroke:#333,stroke-width:2px,color:#fff
