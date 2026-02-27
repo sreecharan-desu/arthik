@@ -2,7 +2,7 @@ from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 import models
 from database import engine
-from routers import auth, hotels, booking, payment, vendor, chat, users, agent
+from routers import auth, hotels, booking, payment, vendor, users, agent
 import os
 
 app = FastAPI(title="Concierge Backend")
