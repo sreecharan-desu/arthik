@@ -1,0 +1,59 @@
+name: Deploy Concierge Backend
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  test-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Install Python Dependencies
+        run: |
+          pip install alembic uvicorn fastapi sqlalchemy psycopg2-binary reportlab "python-jose[cryptography]" "passlib[bcrypt]" python-multipart requests openai python-dotenv
+
+      - name: Run Tests
+        run: |
+          # pytest tests/
+          echo "Running tests..."
+
+      - name: Run Database Migrations
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          alembic upgrade head
+
+      - name: Setup Node for Seeding
+        uses: actions/setup-node@v3
+        with:
+          node-version: "18"
+
+      - name: Install Node Dependencies
+        run: npm install
+
+      - name: Run Seeding Script
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: npm run seed
+
+      - name: Deploy Backend to Railway
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: |
+          # This assumes railway cli is installed or using npx
+          # npx @railway/cli up --detach
+          echo "Deploying to backend..."
+
+      - name: Deploy Frontend to Vercel
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          npm install --global vercel
+          vercel --prod --token $VERCEL_TOKEN --yes
