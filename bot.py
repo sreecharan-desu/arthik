@@ -15,6 +15,8 @@ from langchain_openai import ChatOpenAI
 from langchain_core.tools import tool
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 
+from langchain_community.utilities import GoogleSerperAPIWrapper
+
 # Load environment variables
 load_dotenv(override=True)
 baseten_api_key = os.getenv("BASETEN_API_KEY")
@@ -24,14 +26,25 @@ summarizer = ChatOpenAI(base_url="https://inference.baseten.co/v1", model="opena
 llm = ChatOpenAI(base_url="https://inference.baseten.co/v1", model="moonshotai/Kimi-K2-Instruct-0905", api_key=baseten_api_key)
 
 
+serper = GoogleSerperAPIWrapper()
 
 @tool
-async def fetch_website_content(url: str, query: str = "") -> str:
-    """Fetches content from a website."""
-    # Placeholder for your actual implementation
-    return f"Simulated content from {url} for query {query}"
+def search_places(query: str) -> str:
+    """
+    Use this tool to search Google for real-time information about places, 
+    local attractions, restaurants, weather, or general knowledge that is 
+    not in the internal database. 
+    
+    Args:
+        query: A highly specific search query (e.g., "Best Italian restaurants near Eiffel Tower", "Weather in Tokyo today").
+    """
+    try:
+        results = serper.run(query)
+        return str(results)
+    except Exception as e:
+        return f"Error performing Google search: {str(e)}"
 
-tools = [fetch_website_content]
+tools = [search_places]
 llm_with_tools = llm.bind_tools(tools)
 
 
@@ -61,8 +74,8 @@ async def tool_node(state: State):
         tool_args = tool_call["args"]
         tool_id = tool_call["id"]
 
-        if tool_name == "fetch_website_content":
-            tool_result = await fetch_website_content.ainvoke(tool_args)
+        if tool_name == "search_places":
+            tool_result = search_places.invoke(tool_args)
             tool_message = ToolMessage(
                 content=str(tool_result),
                 tool_call_id=tool_id,
@@ -203,23 +216,45 @@ async def generate_chat_responses(message: str, user_data: dict, checkpoint_id: 
             event_type = event["event"]
             node_name = event.get("metadata", {}).get("langgraph_node")
 
+            # 1. Handle streaming the actual text response back to the user
             if event_type == "on_chat_model_stream" and node_name == "chatbot":
                 chunk_content = serialise_ai_message_chunk(event["data"]["chunk"])
                 safe_content = chunk_content.replace("'", "\\'").replace("\n", "\\n").replace('"', '\\"')
                 yield f"data: {{\"type\": \"content\", \"content\": \"{safe_content}\"}}\n\n"
             
+            # 2. Detect when the LLM decides to call a tool
             elif event_type == "on_chat_model_end" and node_name == "chatbot":
                 tool_calls = event["data"]["output"].tool_calls if hasattr(event["data"]["output"], "tool_calls") else []
-                search_calls = [call for call in tool_calls if call["name"] == "fetch_website_content"]
-
-                if search_calls:
-                    search_query = search_calls[0]["args"].get("query", "")
+                
+                # Check if it called the Website Fetcher
+                website_calls = [call for call in tool_calls if call["name"] == "fetch_website_content"]
+                if website_calls:
+                    search_query = website_calls[0]["args"].get("query", "")
                     safe_query = search_query.replace('"', '\\"').replace("'", "\\'").replace("\n", "\\n")
                     yield f"data: {{\"type\": \"search_start\", \"query\": \"{safe_query}\"}}\n\n"
+                
+                # Check if it called the Google Search tool
+                google_calls = [call for call in tool_calls if call["name"] == "search_places"]
+                if google_calls:
+                    google_query = google_calls[0]["args"].get("query", "")
+                    safe_google_query = google_query.replace('"', '\\"').replace("'", "\\'").replace("\n", "\\n")
+                    yield f"data: {{\"type\": \"google_search_start\", \"query\": \"{safe_google_query}\"}}\n\n"
             
-            elif event_type == "on_tool_end" and event["name"] == "fetch_website_content":
-                urls = event["data"]["input"].get("url", "Nothing")
-                urls_json = json.dumps(urls)
-                yield f"data: {{\"type\": \"search_results\", \"urls\": {urls_json}}}\n\n"
+            # 3. Detect when a tool finishes executing
+            elif event_type == "on_tool_end":
+                
+                # If Website Fetcher finished
+                if event["name"] == "fetch_website_content":
+                    urls = event["data"]["input"].get("url", "Nothing")
+                    urls_json = json.dumps(urls)
+                    yield f"data: {{\"type\": \"search_results\", \"urls\": {urls_json}}}\n\n"
+                
+                # If Google Search finished
+                elif event["name"] == "search_places":
+                    query_searched = event["data"]["input"].get("query", "Unknown query")
+                    safe_query_searched = query_searched.replace('"', '\\"').replace("'", "\\'").replace("\n", "\\n")
+                    # Send a signal to the frontend that the search completed
+                    yield f"data: {{\"type\": \"google_search_results\", \"query\": \"{safe_query_searched}\"}}\n\n"
         
+        # 4. End of the complete stream
         yield f"data: {{\"type\": \"end\"}}\n\n"
