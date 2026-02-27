@@ -1,3 +1,12 @@
+---
+title: Arthik Concierge
+emoji: 🏨
+colorFrom: blue
+colorTo: gray
+sdk: static
+pinned: false
+---
+
 # Arthik Concierge Backend
 
 ![Python](https://img.shields.io/badge/Python-3.12-3776AB?style=for-the-badge&logo=python&logoColor=white)
