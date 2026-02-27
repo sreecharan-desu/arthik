@@ -19,7 +19,7 @@ router = APIRouter(
 bcrypt_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_bearer = OAuth2PasswordBearer(tokenUrl="auth/token")
 
-SECRET_KEY = os.getenv("SECRET_KEY")
+SECRET_KEY = os.getenv("SECRET_KEY", "c626778ab8558c653679edcb6f47e25a7c726b53bb8712dd7a255fbbd937d6db")
 ALGORITHM = "HS256"
 
 class CreateUserRequest(BaseModel):
