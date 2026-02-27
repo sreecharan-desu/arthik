@@ -165,7 +165,6 @@ def perform_hotel_search(
 
 
 @router.get("/search")
-@router.get("/find")
 def search_hotels(
     location: Optional[str] = None,
     budget_min: float = 0.0,
