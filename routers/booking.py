@@ -35,12 +35,52 @@ def create_booking(
         raise HTTPException(status_code=400, detail="Service already booked for this time slot")
     
     service = db.query(Service).filter(Service.id == booking_in.service_id).first()
-    if not service:
+    
+    # Check for our fallback mock hotels
+    is_mock = False
+    mock_price = 0.0
+    mock_name = ""
+    if not service and booking_in.service_id in [999901, 999902, 999903, 999904, 999905]:
+        prices = {999901: 18500.0, 999902: 32000.0, 999903: 12000.0, 999904: 14500.0, 999905: 8500.0}
+        names = {999901: "The Taj Mahal Palace", 999902: "Oberoi Amarvilas", 999903: "ITC Maurya", 999904: "Leela Palace", 999905: "Marriott Executive Suites"}
+        is_mock = True
+        mock_price = prices[booking_in.service_id]
+        mock_name = names[booking_in.service_id]
+    elif not service:
         raise HTTPException(status_code=404, detail="Service not found")
     
     user = db.query(Users).filter(Users.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+
+    if is_mock:
+        import time
+        mock_booking_id = int(time.time() * 1000) % 1000000 # Generate fake ID
+        merchant_key = os.getenv("PAYU_MERCHANT_KEY", "")
+        salt = os.getenv("PAYU_MERCHANT_SALT", "")
+        txnid = f"TXN_{mock_booking_id}_{int(datetime.now().timestamp())}"
+        amount_str = f"{mock_price:.2f}"
+        
+        hash_string = f"{merchant_key}|{txnid}|{amount_str}|{mock_name}|{user.first_name or 'Guest'}|{user.email}|||||||||||{salt}"
+        payment_hash = hashlib.sha512(hash_string.encode()).hexdigest()
+        
+        return {
+            "booking_id": mock_booking_id,
+            "payu_payload": {
+                "key": merchant_key,
+                "txnid": txnid,
+                "amount": amount_str,
+                "productinfo": mock_name,
+                "firstname": user.first_name or "Guest",
+                "email": user.email,
+                "phone": "9999999999", 
+                "surl": os.getenv("PAYU_SUCCESS_URL"),
+                "furl": os.getenv("PAYU_FAILURE_URL"),
+                "hash": payment_hash,
+                "service_provider": "payu_paisa"
+            }
+        }
+
 
     booking = Booking(
         user_id=user_id,
