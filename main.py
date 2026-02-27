@@ -2,7 +2,7 @@ from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 import models
 from database import engine
-from routers import auth, hotels, booking, payment, vendor, chat, users
+from routers import auth, hotels, booking, payment, vendor, chat, users, agent
 import os
 
 app = FastAPI(title="Concierge Backend")
@@ -25,6 +25,7 @@ app.include_router(payment.router)
 app.include_router(vendor.router)
 app.include_router(chat.router)
 app.include_router(users.router)
+app.include_router(agent.router)
 
 @app.get("/health")
 def health_check():
