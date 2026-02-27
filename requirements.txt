@@ -33,6 +33,7 @@ langchain-openai==1.1.10
 langchain-text-splitters==1.1.1
 langgraph==1.0.9
 langgraph-checkpoint==4.0.0
+langgraph-checkpoint-postgres==3.0.4
 langgraph-prebuilt==1.0.8
 langgraph-sdk==0.3.9
 langsmith==0.7.7
@@ -48,6 +49,8 @@ passlib==1.7.4
 pg8000==1.31.5
 pillow==12.1.1
 propcache==0.4.1
+psycopg==3.3.3
+psycopg-pool==3.3.0
 psycopg2-binary==2.9.11
 pyasn1==0.6.2
 pycparser==3.0
