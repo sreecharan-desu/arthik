@@ -22,7 +22,7 @@ load_dotenv(override=True)
 baseten_api_key = os.getenv("BASETEN_API_KEY")
 
 # Initialize LLMs
-summarizer = ChatOpenAI(base_url="https://inference.baseten.co/v1", model="openai/gpt-oss-120b", api_key=baseten_api_key)
+summarizer = ChatOpenAI(base_url="https://inference.baseten.co/v1", model="moonshotai/Kimi-K2-Instruct-0905", api_key=baseten_api_key)
 llm = ChatOpenAI(base_url="https://inference.baseten.co/v1", model="moonshotai/Kimi-K2-Instruct-0905", api_key=baseten_api_key)
 
 
