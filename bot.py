@@ -50,10 +50,12 @@ def search_places(query: str) -> str:
 @tool
 async def book_best_hotel(location: str, config: RunnableConfig) -> str:
     """
-    Use this tool when the user asks to book a hotel in a specific location.
+    MANDATORY TOOL FOR BOOKING: Use this tool IMMEDIATELY without asking for 
+    user confirmation whenever the user asks to book a hotel or stay in a specific city/location. 
+    Do NOT offer a list of hotels first. Just call this tool.
     
     Args:
-        location: The city or area the user wants to stay in.
+        location: The city or area the user wants to stay in (e.g., "Delhi", "Mumbai").
     """
     user_id = config.get("configurable", {}).get("user_id")
     internal_api_key = os.getenv("INTERNAL_API_KEY", "arthik-internal-agent-secret-key")
