@@ -196,65 +196,59 @@ async def generate_chat_responses(message: str, user_data: dict, checkpoint_id: 
         "user_data": user_data 
     }
 
-    # Open an async connection specifically for LangGraph's memory
-    async with AsyncPostgresSaver.from_conn_string(DB_URI) as checkpointer:
-        
-        
-        await checkpointer.setup() 
-        
-        # Compile the graph dynamically using the Postgres memory
-        graph = graph_builder.compile(checkpointer=checkpointer)
+    try:
+        # Open an async connection specifically for LangGraph's memory
+        async with AsyncPostgresSaver.from_conn_string(DB_URI) as checkpointer:
+            await checkpointer.setup() 
+            graph = graph_builder.compile(checkpointer=checkpointer)
 
-        # Stream the events normally
-        events = graph.astream_events(
-            state_input,
-            version="v2",
-            config=config
-        )
-        
-        async for event in events:
-            event_type = event["event"]
-            node_name = event.get("metadata", {}).get("langgraph_node")
+            # Stream the events normally
+            events = graph.astream_events(
+                state_input,
+                version="v2",
+                config=config
+            )
+            
+            async for event in events:
+                event_type = event["event"]
+                node_name = event.get("metadata", {}).get("langgraph_node")
 
-            # 1. Handle streaming the actual text response back to the user
-            if event_type == "on_chat_model_stream" and node_name == "chatbot":
-                chunk_content = serialise_ai_message_chunk(event["data"]["chunk"])
-                safe_content = chunk_content.replace("'", "\\'").replace("\n", "\\n").replace('"', '\\"')
-                yield f"data: {{\"type\": \"content\", \"content\": \"{safe_content}\"}}\n\n"
+                # 1. Handle streaming the actual text response back to the user
+                if event_type == "on_chat_model_stream" and node_name == "chatbot":
+                    chunk = event["data"]["chunk"]
+                    # More robust serialization
+                    if hasattr(chunk, "content"):
+                        chunk_content = chunk.content
+                    elif isinstance(chunk, dict) and "content" in chunk:
+                        chunk_content = chunk["content"]
+                    else:
+                        chunk_content = ""
+                    
+                    if chunk_content:
+                        yield f"data: {json.dumps({'type': 'content', 'content': chunk_content})}\n\n"
+                
+                # 2. Detect when the LLM decides to call a tool
+                elif event_type == "on_chat_model_end" and node_name == "chatbot":
+                    output = event["data"]["output"]
+                    tool_calls = getattr(output, "tool_calls", [])
+                    
+                    # Check if it called the Google Search tool
+                    google_calls = [call for call in tool_calls if call["name"] == "search_places"]
+                    if google_calls:
+                        google_query = google_calls[0]["args"].get("query", "")
+                        yield f"data: {json.dumps({'type': 'google_search_start', 'query': google_query})}\n\n"
+                
+                # 3. Detect when a tool finishes executing
+                elif event_type == "on_tool_end":
+                    # If Google Search finished
+                    if event["name"] == "search_places":
+                        query_searched = event["data"]["input"].get("query", "Unknown query")
+                        yield f"data: {json.dumps({'type': 'google_search_results', 'query': query_searched})}\n\n"
             
-            # 2. Detect when the LLM decides to call a tool
-            elif event_type == "on_chat_model_end" and node_name == "chatbot":
-                tool_calls = event["data"]["output"].tool_calls if hasattr(event["data"]["output"], "tool_calls") else []
-                
-                # Check if it called the Website Fetcher
-                website_calls = [call for call in tool_calls if call["name"] == "fetch_website_content"]
-                if website_calls:
-                    search_query = website_calls[0]["args"].get("query", "")
-                    safe_query = search_query.replace('"', '\\"').replace("'", "\\'").replace("\n", "\\n")
-                    yield f"data: {{\"type\": \"search_start\", \"query\": \"{safe_query}\"}}\n\n"
-                
-                # Check if it called the Google Search tool
-                google_calls = [call for call in tool_calls if call["name"] == "search_places"]
-                if google_calls:
-                    google_query = google_calls[0]["args"].get("query", "")
-                    safe_google_query = google_query.replace('"', '\\"').replace("'", "\\'").replace("\n", "\\n")
-                    yield f"data: {{\"type\": \"google_search_start\", \"query\": \"{safe_google_query}\"}}\n\n"
-            
-            # 3. Detect when a tool finishes executing
-            elif event_type == "on_tool_end":
-                
-                # If Website Fetcher finished
-                if event["name"] == "fetch_website_content":
-                    urls = event["data"]["input"].get("url", "Nothing")
-                    urls_json = json.dumps(urls)
-                    yield f"data: {{\"type\": \"search_results\", \"urls\": {urls_json}}}\n\n"
-                
-                # If Google Search finished
-                elif event["name"] == "search_places":
-                    query_searched = event["data"]["input"].get("query", "Unknown query")
-                    safe_query_searched = query_searched.replace('"', '\\"').replace("'", "\\'").replace("\n", "\\n")
-                    # Send a signal to the frontend that the search completed
-                    yield f"data: {{\"type\": \"google_search_results\", \"query\": \"{safe_query_searched}\"}}\n\n"
-        
-        # 4. End of the complete stream
-        yield f"data: {{\"type\": \"end\"}}\n\n"
+            # 4. End of the complete stream
+            yield f"data: {json.dumps({'type': 'end'})}\n\n"
+
+    except Exception as e:
+        error_msg = f"Internal Error: {str(e)}"
+        yield f"data: {json.dumps({'type': 'error', 'content': error_msg})}\n\n"
+        yield f"data: {json.dumps({'type': 'end'})}\n\n"

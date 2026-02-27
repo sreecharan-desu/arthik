@@ -60,5 +60,10 @@ async def chat_endpoint(
             user_data=user_data, 
             checkpoint_id=str(user.get('id'))
         ),
-        media_type="text/event-stream"
+        media_type="text/event-stream",
+        headers={
+            "X-Accel-Buffering": "no",
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive"
+        }
     )
