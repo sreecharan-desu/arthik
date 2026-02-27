@@ -1,11 +1,21 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Header, HTTPException, status
 from sqlalchemy.orm import Session
 from database import get_db
 from models import Service, LocalProvider
 from utils.ranking import calculate_ranking_score
 from typing import List, Optional
+import os
 
 router = APIRouter(prefix="/hotels", tags=["hotels"])
+
+INTERNAL_SECRET = os.getenv("INTERNAL_API_KEY", "arthik-internal-agent-secret-key")
+
+async def verify_internal_key(x_internal_key: str = Header(..., alias="X-Internal-Key")):
+    if x_internal_key != INTERNAL_SECRET:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Unauthorized: Invalid Internal API Key"
+        )
 
 @router.get("/search")
 def search_hotels(
@@ -17,7 +27,8 @@ def search_hotels(
     checkin: Optional[str] = None,
     checkout: Optional[str] = None,
     lang: str = "en",
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _auth: bool = Depends(verify_internal_key)
 ):
     query = db.query(Service).join(LocalProvider)
     
