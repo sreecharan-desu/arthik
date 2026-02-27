@@ -16,6 +16,9 @@ from langchain_core.tools import tool
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 
 from langchain_community.utilities import GoogleSerperAPIWrapper
+from langchain_core.runnables import RunnableConfig
+import httpx
+from datetime import datetime, timedelta
 
 # Load environment variables
 load_dotenv(override=True)
@@ -44,7 +47,55 @@ def search_places(query: str) -> str:
     except Exception as e:
         return f"Error performing Google search: {str(e)}"
 
-tools = [search_places]
+@tool
+async def book_best_hotel(location: str, config: RunnableConfig) -> str:
+    """
+    Use this tool when the user asks to book a hotel in a specific location.
+    
+    Args:
+        location: The city or area the user wants to stay in.
+    """
+    user_id = config.get("configurable", {}).get("user_id")
+    internal_api_key = os.getenv("INTERNAL_API_KEY", "arthik-internal-agent-secret-key")
+    base_url = os.getenv("BACKEND_URL", "https://arthik-omega.vercel.app")
+    
+    async with httpx.AsyncClient() as client:
+        try:
+            # 1. Search for hotels in the requested location
+            search_res = await client.get(f"{base_url}/hotels/search?location={location}&lang=en")
+            hotels = search_res.json()
+            
+            if not hotels:
+                return json.dumps({"status": "error", "message": f"No hotels found in {location}."})
+            
+            best_hotel = hotels[0]["service"] # Top scored hotel
+            
+            # 2. Initiate Booking
+            booking_payload = {
+                "user_id": str(user_id),
+                "service_id": best_hotel["id"],
+                "booking_datetime": (datetime.now() + timedelta(days=1)).isoformat(),
+                "special_requests": "Autonomous Agent Booking"
+            }
+            
+            headers = {"X-Internal-Key": internal_api_key}
+            booking_res = await client.post(f"{base_url}/booking", json=booking_payload, headers=headers)
+            
+            if booking_res.status_code == 200:
+                booking_data = booking_res.json()
+                return json.dumps({
+                    "status": "success",
+                    "hotel_name": best_hotel["name"],
+                    "price": best_hotel["price"],
+                    "payu_payload": booking_data.get("payu_payload")
+                })
+            else:
+                return json.dumps({"status": "error", "message": "Booking failed."})
+                
+        except Exception as e:
+            return json.dumps({"status": "error", "message": str(e)})
+
+tools = [search_places, book_best_hotel]
 llm_with_tools = llm.bind_tools(tools)
 
 
@@ -64,7 +115,10 @@ async def tools_router(state: State):
         return "tool_node"
     return END
 
-async def tool_node(state: State):
+from langchain_core.runnables import RunnableConfig
+from langchain_core.messages import ToolMessage
+
+async def tool_node(state: State, config: RunnableConfig):
     """Custom tool node that handles tool calls from the LLM"""
     tool_calls = state["messages"][-1].tool_calls
     tool_messages = []
@@ -75,7 +129,19 @@ async def tool_node(state: State):
         tool_id = tool_call["id"]
 
         if tool_name == "search_places":
+            # Synchronous execution for the existing serper tool
             tool_result = search_places.invoke(tool_args)
+            tool_message = ToolMessage(
+                content=str(tool_result),
+                tool_call_id=tool_id,
+                name=tool_name
+            )
+            tool_messages.append(tool_message)
+            
+        elif tool_name == "book_best_hotel":
+            # Asynchronous execution for the new booking tool
+            # We pass the config so the tool can extract the user_id
+            tool_result = await book_best_hotel.ainvoke(tool_args, config=config)
             tool_message = ToolMessage(
                 content=str(tool_result),
                 tool_call_id=tool_id,
@@ -190,7 +256,12 @@ async def generate_chat_responses(message: str, user_data: dict, checkpoint_id: 
     """
     Main entry point for the FastAPI route to interact with the bot.
     """
-    config = {"configurable": {"thread_id": checkpoint_id}}
+    config = {
+        "configurable": {
+            "thread_id": checkpoint_id,
+            "user_id": user_data.get("id")
+        }
+    }
     state_input = {
         "messages": [HumanMessage(content=message)],
         "user_data": user_data 
@@ -256,6 +327,19 @@ async def generate_chat_responses(message: str, user_data: dict, checkpoint_id: 
                 #     yield f"data: {{\"type\": \"search_results\", \"urls\": {urls_json}}}\n\n"
                 urls_json = json.dumps(urls)
                 yield f"data: {{\"type\": \"search_results\", \"task\": \"completed\"}}\n\n"
+            # Catch Custom Tool Execution
+            elif event_type == "on_tool_end" and event["name"] == "book_best_hotel":
+                output_str = event["data"].get("output", "{}")
+                try:
+                    res = json.loads(output_str)
+                    if res.get("status") == "success":
+                        payu_json = json.dumps(res["payu_payload"])
+                        safe_hotel = res["hotel_name"].replace('"', '\\"').replace("'", "\\'").replace("\n", "\\n")
+                        
+                        # Stream the payment trigger to the frontend!
+                        yield f"data: {{\"type\": \"payment_initiation\", \"hotel_name\": \"{safe_hotel}\", \"price\": {res['price']}, \"payu_payload\": {payu_json}}}\n\n"
+                except Exception:
+                    pass
         
         # Send an event
         yield f"data: {{\"type\": \"end\"}}\n\n"
