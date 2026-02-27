@@ -3,14 +3,14 @@ from pydantic import BaseModel
 import openai
 import os
 import json
-from .hotels import search_hotels
+from .hotels import perform_hotel_search
 from database import get_db
 from sqlalchemy.orm import Session
+from .auth import get_current_user
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
 class ChatMessage(BaseModel):
-    user_id: int
     message: str
     language: str = "en"
 
@@ -33,7 +33,7 @@ Respond ONLY with a JSON object:
 """
 
 @router.post("")
-async def chat_interaction(chat_msg: ChatMessage, db: Session = Depends(get_db)):
+async def chat_interaction(chat_msg: ChatMessage, db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
     # Language detection / Intent extraction via LLM
     api_key = os.getenv("OPENAI_API_KEY") or os.getenv("OPENROUTER_API_KEY")
     
@@ -74,11 +74,11 @@ async def chat_interaction(chat_msg: ChatMessage, db: Session = Depends(get_db))
     # Execute intent
     if intent_data["intent"] == "search":
         slots = intent_data["slot_data"]
-        candidates = search_hotels(
+        candidates = perform_hotel_search(
+            db=db,
             location=slots.get("location"),
             budget_max=slots.get("budget_max", 1000000.0),
-            facilities=",".join(slots.get("facilities", [])),
-            db=db
+            facilities=",".join(slots.get("facilities", []))
         )
         return {
             "intent": "search",

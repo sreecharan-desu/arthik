@@ -4,19 +4,21 @@ from database import get_db
 from models import Booking, Service, Users
 from pydantic import BaseModel
 from datetime import datetime
+from .auth import get_current_user
 import hashlib
 import os
 
 router = APIRouter(prefix="/booking", tags=["booking"])
 
 class BookingCreate(BaseModel):
-    user_id: int
     service_id: int
     booking_datetime: datetime
     special_requests: str = ""
 
 @router.post("")
-def create_booking(booking_in: BookingCreate, db: Session = Depends(get_db)):
+def create_booking(booking_in: BookingCreate, db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
+    user_id = current_user.get("id")
+    
     # Start transaction
     with db.begin():
         # Check for overlapping bookings for same service at same time
@@ -33,12 +35,12 @@ def create_booking(booking_in: BookingCreate, db: Session = Depends(get_db)):
         if not service:
             raise HTTPException(status_code=404, detail="Service not found")
         
-        user = db.query(Users).filter(Users.id == booking_in.user_id).first()
+        user = db.query(Users).filter(Users.id == user_id).first()
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
 
         booking = Booking(
-            user_id=booking_in.user_id,
+            user_id=user_id,
             service_id=booking_in.service_id,
             booking_datetime=booking_in.booking_datetime,
             special_requests=booking_in.special_requests,
@@ -80,10 +82,15 @@ def create_booking(booking_in: BookingCreate, db: Session = Depends(get_db)):
         }
 
 @router.get("/{id}")
-def get_booking(id: int, db: Session = Depends(get_db)):
+def get_booking(id: int, db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
     booking = db.query(Booking).filter(Booking.id == id).first()
     if not booking:
         raise HTTPException(status_code=404, detail="Booking not found")
+    
+    # Ensure users can only see their own bookings (unless they are admin)
+    if booking.user_id != current_user.get("id") and current_user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Not authorized to view this booking")
+        
     return {
         "id": booking.id,
         "status": booking.status,
