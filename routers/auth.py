@@ -76,6 +76,17 @@ async def get_current_user(token: Annotated[str, Depends(oauth2_bearer)], db: Se
 
 @router.post("/", status_code=status.HTTP_201_CREATED)
 async def create_user(create_user_request: CreateUserRequest, db: Session = Depends(get_db)):
+    existing_user = db.query(Users).filter(
+        (Users.username == create_user_request.username) | 
+        (Users.email == create_user_request.email)
+    ).first()
+    
+    if existing_user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="User with this username or email already exists."
+        )
+
     create_user_model = Users(
         email=create_user_request.email,
         username=create_user_request.username,
