@@ -157,6 +157,7 @@ async def chatbot(state: State):
     # 1. Extract the user context injected from FastAPI
     user_data = state.get("user_data", {})
     
+    
     # 2. Build the personalized system prompt
     user_context = ""
     if user_data:
@@ -169,8 +170,14 @@ async def chatbot(state: State):
             f"IMPORTANT: You MUST communicate with the user in their Preferred Language. "
             f"Address them by their name."
         )
+    # --- NEW: Aggressive instructions added here ---
+    strict_instructions = (
+        "CRITICAL INSTRUCTION: If the user asks to book a hotel in a location (e.g., 'book me a hotel in Delhi'), "
+        "you MUST instantly call the `book_best_hotel` tool. DO NOT ask them which hotel they prefer. "
+        "DO NOT give them a shortlist. Just execute the tool immediately."
+    )
 
-    sys_msg = SystemMessage(content=f"You are a helpful multilingual hotel concierge assistant. You have access to tools. Use them when necessary.{user_context}")
+    sys_msg = SystemMessage(content=f"You are a helpful multilingual hotel concierge assistant. {strict_instructions} {user_context}")
     
     messages_to_pass = [sys_msg]
     
