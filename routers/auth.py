@@ -87,6 +87,7 @@ async def create_user(create_user_request: CreateUserRequest, db: Session = Depe
     )
     db.add(create_user_model)
     db.commit()
+    db.refresh(create_user_model)
     
     return {"message": "Account created successfully"}
 @router.post("/token", response_model=Token)
