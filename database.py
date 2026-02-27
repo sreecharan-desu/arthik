@@ -10,7 +10,7 @@ try:
 except ImportError:
     pass
 
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./todosapp.db")
+DATABASE_URL = os.getenv("DATABASE_URL")
 
 # SQLite fix for multi-threading
 connect_args = {}
@@ -32,12 +32,10 @@ if DATABASE_URL.startswith("postgres://") or DATABASE_URL.startswith("postgresql
     ssl_context = ssl.create_default_context()
     ssl_context.check_hostname = False
     ssl_context.verify_mode = ssl.CERT_NONE
-    connect_args = {"ssl_context": ssl_context}
-
-if DATABASE_URL.startswith("sqlite"):
-    connect_args = {"check_same_thread": False}
+    connect_args["context"] = ssl_context
 
 engine = create_engine(DATABASE_URL, connect_args=connect_args)
+
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
