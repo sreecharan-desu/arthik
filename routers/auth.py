@@ -34,6 +34,9 @@ class Token(BaseModel):
     access_token: str
     token_type: str
 
+class GoogleAuthCode(BaseModel):
+    code: str
+
 def authenticate_user(username: str, password: str, db: Session):
     user = db.query(Users).filter(Users.username == username).first()
     if not user:
@@ -94,7 +97,7 @@ async def login_for_access_token(form_data: Annotated[OAuth2PasswordRequestForm,
     token = create_access_token(user.username, user.id, user.role, timedelta(minutes=60))
     return {'access_token': token, 'token_type': 'bearer'}
 
-@router.get("/google/login")
+@router.post("/google/login")
 def google_login():
     client_id = os.getenv("GOOGLE_CLIENT_ID")
     redirect_uri = f"{os.getenv('APP_URL')}/auth/google/callback"
@@ -102,8 +105,8 @@ def google_login():
         "url": f"https://accounts.google.com/o/oauth2/v2/auth?client_id={client_id}&redirect_uri={redirect_uri}&response_type=code&scope=email%20profile"
     }
 
-@router.get("/google/callback")
-async def google_callback(code: str, db: Session = Depends(get_db)):
+@router.post("/google/callback")
+async def google_callback(payload: GoogleAuthCode, db: Session = Depends(get_db)):
     client_id = os.getenv("GOOGLE_CLIENT_ID")
     client_secret = os.getenv("GOOGLE_CLIENT_SECRET")
     redirect_uri = f"{os.getenv('APP_URL')}/auth/google/callback"
@@ -112,7 +115,7 @@ async def google_callback(code: str, db: Session = Depends(get_db)):
     token_resp = requests.post("https://oauth2.googleapis.com/token", data={
         "client_id": client_id,
         "client_secret": client_secret,
-        "code": code,
+        "code": payload.code,
         "grant_type": "authorization_code",
         "redirect_uri": redirect_uri
     })
