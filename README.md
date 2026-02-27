@@ -2,6 +2,75 @@
 
 FastAPI + SQLAlchemy + PayU + Neon Postgres
 
+## High-Level Architecture
+
+```mermaid
+graph TD
+    %% Define User and Interface
+    User((Guest / User))
+    Frontend[Mobile/Web App]
+
+    %% API Gateway / Backend
+    subgraph "FastAPI Backend Core"
+        API[FastAPI Gateway]
+        RouterAuth[Auth Router]
+        RouterHotel[Hotels & Search]
+        RouterBooking[Booking Manager]
+        RouterPayment[Payment Processor]
+        RouterVendor[Vendor Portal & WS]
+        RouterAgent[AI Concierge Node]
+    end
+
+    %% AI Infrastructure
+    subgraph "AI Orchestration (LangGraph)"
+        AgentFlow[LangGraph Workflow]
+        Summarizer[Conversation Summarizer]
+        ChatNode[Baseten / OpenAI LLM]
+        ToolNode[Tool Executor]
+
+        AgentFlow --> Summarizer
+        Summarizer --> ChatNode
+        ChatNode --> ToolNode
+        ToolNode --> ChatNode
+    end
+
+    %% External integrations
+    subgraph "Cloud & External Services"
+        PayU[PayU Payment Gateway]
+        LLMProvider[LLM Provider: Baseten/OpenAI]
+        Postgres[(Neon Serverless Postgres)]
+        S3[PDF Storage / Static Assets]
+    end
+
+    %% Connections
+    User <--> Frontend
+    Frontend <--> API
+
+    API --> RouterAuth
+    API --> RouterHotel
+    API --> RouterBooking
+    API --> RouterPayment
+    API --> RouterVendor
+    API --> RouterAgent
+
+    RouterAgent <--> AgentFlow
+    AgentFlow <--> Postgres
+
+    RouterPayment <--> PayU
+    RouterAgent <--> LLMProvider
+
+    RouterAuth & RouterHotel & RouterBooking & RouterPayment & RouterVendor --> Postgres
+    RouterPayment --> S3
+
+    %% Styling
+    style User fill:#f9f,stroke:#333,stroke-width:2px
+    style Frontend fill:#fff,stroke:#666,stroke-width:2px
+    style API fill:#69f,stroke:#333,stroke-width:3px
+    style Postgres fill:#4CAF50,stroke:#333,stroke-width:2px,color:#fff
+    style AgentFlow fill:#FF9800,stroke:#333,stroke-width:2px,color:#fff
+    style PayU fill:#03A9F4,stroke:#333,stroke-width:1px,color:#fff
+```
+
 ## Setup
 
 1. **Install Dependencies**
