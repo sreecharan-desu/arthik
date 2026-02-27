@@ -18,19 +18,6 @@ class Users(Base):
     room_number = Column(String, nullable=True)
 
     bookings = relationship("Booking", back_populates="user")
-    todos = relationship("Todos", back_populates="owner")
-
-class Todos(Base):
-    __tablename__ = 'todos'
-
-    id = Column(Integer, primary_key=True, index=True)
-    title = Column(String)
-    description = Column(String)
-    priority = Column(Integer)
-    complete = Column(Boolean, default=False)
-    owner_id = Column(Integer, ForeignKey('users.id'))
-
-    owner = relationship("Users", back_populates="todos")
 
 class LocalProvider(Base):
     __tablename__ = 'local_providers'
