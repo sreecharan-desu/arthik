@@ -46,13 +46,14 @@ async def chat_endpoint(
          raise HTTPException(status_code=404, detail='User not found')
 
    
+ 
     user_data = {
+        "id": str(user.get('id')),
         "first_name": user_record.first_name,
         "last_name": user_record.last_name,
         "preferred_language": user_record.preferred_language,
         "room_number": user_record.room_number
     }
-
     
     return StreamingResponse(
         generate_chat_responses(
