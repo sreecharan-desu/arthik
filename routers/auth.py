@@ -115,14 +115,26 @@ async def google_callback(code: str, db: Session = Depends(get_db)):
         "code": code,
         "grant_type": "authorization_code",
         "redirect_uri": redirect_uri
-    }).json()
+    })
     
-    access_token = token_resp.get("access_token")
-    user_info = requests.get("https://www.googleapis.com/oauth2/v2/userinfo", headers={
+    if not token_resp.ok:
+        raise HTTPException(status_code=400, detail=f"Google Token Exchange Failed: {token_resp.text}")
+        
+    token_json = token_resp.json()
+    access_token = token_json.get("access_token")
+    
+    user_info_resp = requests.get("https://www.googleapis.com/oauth2/v2/userinfo", headers={
         "Authorization": f"Bearer {access_token}"
-    }).json()
+    })
     
+    if not user_info_resp.ok:
+        raise HTTPException(status_code=400, detail="Failed to fetch user info from Google")
+        
+    user_info = user_info_resp.json()
     email = user_info.get("email")
+    if not email:
+        raise HTTPException(status_code=400, detail="Google account has no email")
+
     user = db.query(Users).filter(Users.email == email).first()
     
     if not user:
@@ -132,6 +144,7 @@ async def google_callback(code: str, db: Session = Depends(get_db)):
             username=email.split("@")[0],
             first_name=user_info.get("given_name"),
             last_name=user_info.get("family_name"),
+            hashed_password=None, # Google users don't have a local password by default
             role="guest",
             is_active=True
         )
