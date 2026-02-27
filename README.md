@@ -26,70 +26,61 @@ FastAPI + SQLAlchemy + PayU + Neon Postgres
 ## High-Level Architecture
 
 ```mermaid
-graph TD
-    %% Define User and Interface
-    User((Guest / User))
-    Frontend[Mobile/Web App]
+graph LR
+    %% Definitions
+    User((Guest))
+    UI[Mobile / Web Frontend]
 
-    %% API Gateway / Backend
-    subgraph "FastAPI Backend Core"
+    subgraph "Serverless API (Vercel)"
         API[FastAPI Gateway]
-        RouterAuth[Auth Router]
-        RouterHotel[Hotels & Search]
-        RouterBooking[Booking Manager]
-        RouterPayment[Payment Processor]
-        RouterVendor[Vendor Portal & WS]
-        RouterAgent[AI Concierge Node]
+        Auth[Auth Service]
+        Hotel[Hotel Search]
+        Booking[Booking Engine]
+        Payment[Payment Gateway]
     end
 
-    %% AI Infrastructure
-    subgraph "AI Orchestration (LangGraph)"
-        AgentFlow[LangGraph Workflow]
-        Summarizer[Conversation Summarizer]
-        ChatNode[Baseten / OpenAI LLM]
-        ToolNode[Tool Executor]
-
-        AgentFlow --> Summarizer
-        Summarizer --> ChatNode
-        ChatNode --> ToolNode
-        ToolNode --> ChatNode
+    subgraph "AI Brain (Hugging Face)"
+        Agent[LangGraph Concierge]
+        LLM[GPT-4o / Kimi LLM]
+        Tools[Search & Action Tools]
     end
 
-    %% External integrations
-    subgraph "Cloud & External Services"
-        PayU[PayU Payment Gateway]
-        LLMProvider[LLM Provider: Baseten/OpenAI]
-        Postgres[(Neon Serverless Postgres)]
-        S3[PDF Storage / Static Assets]
+    subgraph "Infrastructure"
+        DB[(Neon Postgres)]
+        Redis[[Redis Cache]]
+        PayU([PayU Payment])
     end
 
-    %% Connections
-    User <--> Frontend
-    Frontend <--> API
+    %% Flow
+    User <==> UI
+    UI <==> API
 
-    API --> RouterAuth
-    API --> RouterHotel
-    API --> RouterBooking
-    API --> RouterPayment
-    API --> RouterVendor
-    API --> RouterAgent
+    %% API Routing
+    API ---> Auth
+    API ---> Hotel
+    API ---> Booking
+    API ---> Payment
+    API <==> Agent
 
-    RouterAgent <--> AgentFlow
-    AgentFlow <--> Postgres
+    %% Internal Connections
+    Hotel --- Redis
+    Agent <==> LLM
+    Agent --- Tools
 
-    RouterPayment <--> PayU
-    RouterAgent <--> LLMProvider
+    %% Database Links
+    Auth & Hotel & Booking & Payment & Agent ==> DB
 
-    RouterAuth & RouterHotel & RouterBooking & RouterPayment & RouterVendor --> Postgres
-    RouterPayment --> S3
+    %% External
+    Payment <==> PayU
 
     %% Styling
-    style User fill:#f0f0f0,stroke:#333,stroke-width:2px
-    style Frontend fill:#fff,stroke:#666,stroke-width:2px
-    style API fill:#69f,stroke:#333,stroke-width:3px
-    style Postgres fill:#4CAF50,stroke:#333,stroke-width:2px,color:#fff
-    style AgentFlow fill:#FF9800,stroke:#333,stroke-width:2px,color:#fff
-    style PayU fill:#03A9F4,stroke:#333,stroke-width:1px,color:#fff
+    classDef core fill:#f9fafd,stroke:#2563eb,stroke-width:2px,color:#1e40af
+    classDef infra fill:#f0fdf4,stroke:#16a34a,stroke-width:2px,color:#166534
+    classDef ai fill:#fff7ed,stroke:#ea580c,stroke-width:2px,color:#9a3412
+
+    class API,Auth,Hotel,Booking,Payment core
+    class DB,Redis,PayU infra
+    class Agent,LLM,Tools ai
 ```
 
 ## Setup
@@ -139,11 +130,11 @@ graph TD
 
 ## Key Features
 
-- **Deterministic Ranking**: Services are ranked using a weighted formula (Price, Rating, Facilities, Location).
-- **PayU Sandbox**: Integrated payment flow with hash generation and webhook verification.
-- **AI Concierge**: Chat endpoint with intent extraction and automated service search/booking.
-- **Real-time Updates**: WebSocket broadcast for vendor service updates.
-- **Automated Invoices**: PDF generation upon payment confirmation.
+- **Multi-Cloud Deployment**: Backend optimized for Vercel (API) and Hugging Face Spaces (AI) synchronization.
+- **Deterministic Ranking**: Services are ranked using a weighted formula (Price, Rating, Facilities, Location) for optimal discovery.
+- **PayU Integration**: Full-stack payment lifecycle handling with hash security, callbacks, and status tracking.
+- **AI Concierge (LangGraph)**: Stateful chat agent with persistent memory, intent extraction, and autonomous search.
+- **Automated Invoices**: Dynamically generated PDF reports dispatched upon payment confirmation.
 
 ## API Documentation
 
