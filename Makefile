@@ -10,8 +10,21 @@ migrate:
 seed:
 	npm run seed
 
+seed-py:
+	export PYTHONPATH=. && python scripts/seed_db.py
+
 start:
 	uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 
 test:
 	pytest tests/
+
+clean:
+	rm -rf __pycache__ .pytest_cache .venv node_modules
+	find . -type d -name "__pycache__" -exec rm -rf {} +
+
+lint:
+	flake8 app scripts tests
+
+format:
+	black app scripts tests

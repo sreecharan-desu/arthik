@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
-from models import Users
+from app.models.models import Users
 from passlib.context import CryptContext
-from database import get_db
+from app.db.session import get_db
 from sqlalchemy.orm import Session
 from typing import Annotated
 from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer

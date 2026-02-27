@@ -1,13 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException, Path
 from fastapi.responses import StreamingResponse
-from models import Users
-from database import SessionLocal
+from app.models.models import Users
+from app.db.session import SessionLocal
 from sqlalchemy.orm import Session
 from typing import Annotated, Optional
 from starlette import status
 from pydantic import BaseModel, Field
 from .auth import get_current_user
-from bot import generate_chat_responses 
+from app.services.bot import generate_chat_responses
 
 router = APIRouter(
     prefix="/agent",

@@ -1,10 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect
 from sqlalchemy.orm import Session
-from database import get_db
-from models import Service
+from app.db.session import get_db
+from app.models.models import Service
 from pydantic import BaseModel
 from typing import List, Dict
-from internal_auth import verify_internal_key
+from app.core.security import verify_internal_key
 
 router = APIRouter(prefix="/vendor", tags=["vendor"])
 

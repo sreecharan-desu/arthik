@@ -2,7 +2,7 @@
   "name": "arthik-backend",
   "version": "1.0.0",
   "scripts": {
-    "seed": "ts-node seed.ts"
+    "seed": "ts-node scripts/seed.ts"
   },
   "dependencies": {
     "@faker-js/faker": "^8.4.1",

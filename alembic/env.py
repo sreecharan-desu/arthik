@@ -10,8 +10,8 @@ from alembic import context
 # Add current directory to path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from database import Base, DATABASE_URL
-import models  # Ensure all models are loaded
+from app.db.session import Base, DATABASE_URL
+from app.models import models  # Ensure all models are loaded
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

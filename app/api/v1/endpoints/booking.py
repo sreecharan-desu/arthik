@@ -1,10 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from database import get_db
-from models import Booking, Service, Users
+from app.db.session import get_db
+from app.models.models import Booking, Service, Users
 from pydantic import BaseModel
 from datetime import datetime
-from internal_auth import verify_internal_key
+from app.core.security import verify_internal_key
 import hashlib
 import os
 

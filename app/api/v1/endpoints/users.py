@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Path
-from models import Users
-from database import SessionLocal
+from app.models.models import Users
+from app.db.session import SessionLocal
 from sqlalchemy.orm import Session
 from typing import Annotated
 from starlette import status

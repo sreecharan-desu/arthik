@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from sqlalchemy.orm import Session
-from database import get_db
-from models import Booking
-from pdfs.invoice import generate_invoice_pdf
+from app.db.session import get_db
+from app.models.models import Booking
+from app.pdfs.invoice import generate_invoice_pdf
 import hashlib
 import os
 

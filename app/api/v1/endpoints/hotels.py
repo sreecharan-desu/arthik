@@ -1,12 +1,12 @@
 from fastapi import APIRouter, Depends, Query, HTTPException, status
 from sqlalchemy.orm import Session
-from database import get_db
-from models import Service, LocalProvider
-from utils.ranking import calculate_ranking_score
+from app.db.session import get_db
+from app.models.models import Service, LocalProvider
+from app.utils.ranking import calculate_ranking_score
 from typing import List, Optional
-from internal_auth import verify_internal_key
+from app.core.security import verify_internal_key
 import hashlib
-from utils.cache import get_cache, set_cache
+from app.utils.cache import get_cache, set_cache
 
 router = APIRouter(prefix="/hotels", tags=["hotels"])
 

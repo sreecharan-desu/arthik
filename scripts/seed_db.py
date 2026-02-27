@@ -1,5 +1,5 @@
-from database import engine, SessionLocal
-from models import Base, Users, LocalProvider, Service
+from app.db.session import engine, SessionLocal
+from app.models.models import Base, Users, LocalProvider, Service
 from passlib.context import CryptContext
 import uuid
 
