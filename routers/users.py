@@ -40,6 +40,15 @@ async def get_user(user: user_dependency, db: db_dependency):
     return db.query(Users).filter(Users.id == user.get('id')).first()
 
 
+@router.get("/bookings", status_code=status.HTTP_200_OK)
+async def get_user_bookings(user: user_dependency, db: db_dependency):
+    from models import Booking
+    if user is None:
+        raise HTTPException(status_code=401, detail='Authentication Failed')
+    
+    return db.query(Booking).filter(Booking.user_id == user.get('id')).order_by(Booking.created_at.desc()).all()
+
+
 @router.put("/password", status_code=status.HTTP_204_NO_CONTENT)
 async def change_password(user: user_dependency, db: db_dependency, user_verification: UserVerification):
     if user is None:

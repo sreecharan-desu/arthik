@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Response
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from database import get_db
 from models import Booking, Service, Users
@@ -156,3 +157,22 @@ def get_booking(
         "service_name": booking.service.name if booking.service else None,
         "invoice_path": booking.invoice_path
     }
+
+@router.get("/{id}/download")
+def download_invoice(
+    id: int, 
+    db: Session = Depends(get_db), 
+    _auth: bool = Depends(verify_internal_key)
+):
+    booking = db.query(Booking).filter(Booking.id == id).first()
+    if not booking or not booking.invoice_path:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+        
+    if not os.path.exists(booking.invoice_path):
+        raise HTTPException(status_code=404, detail="Invoice file not found on server")
+        
+    return FileResponse(
+        booking.invoice_path, 
+        media_type='application/pdf', 
+        filename=f"invoice_{id}.pdf"
+    )
