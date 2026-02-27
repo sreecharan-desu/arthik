@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from pydantic import BaseModel
-from models import User
+from models import Users
 from passlib.context import CryptContext
 from database import get_db
 from sqlalchemy.orm import Session
@@ -35,7 +35,7 @@ class Token(BaseModel):
     token_type: str
 
 def authenticate_user(username: str, password: str, db: Session):
-    user = db.query(User).filter(User.username == username).first()
+    user = db.query(Users).filter(Users.username == username).first()
     if not user:
         return False
     if not bcrypt_context.verify(password, user.hashed_password):
@@ -56,16 +56,24 @@ async def get_current_user(token: Annotated[str, Depends(oauth2_bearer)], db: Se
         if username is None or user_id is None:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Could not validate user.")
         
-        user = db.query(User).filter(User.id == user_id).first()
+        user = db.query(Users).filter(Users.id == user_id).first()
         if not user:
              raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found.")
-        return user
+        
+        # Compatibility with old code that expects a dict
+        user_dict = {
+            'username': user.username,
+            'id': user.id,
+            'role': user.role,
+            'email': user.email
+        }
+        return user_dict
     except JWTError:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Could not validate user.")
 
 @router.post("/", status_code=status.HTTP_201_CREATED)
 async def create_user(create_user_request: CreateUserRequest, db: Session = Depends(get_db)):
-    create_user_model = User(
+    create_user_model = Users(
         email=create_user_request.email,
         username=create_user_request.username,
         first_name=create_user_request.first_name,
@@ -115,11 +123,11 @@ async def google_callback(code: str, db: Session = Depends(get_db)):
     }).json()
     
     email = user_info.get("email")
-    user = db.query(User).filter(User.email == email).first()
+    user = db.query(Users).filter(Users.email == email).first()
     
     if not user:
         # Create new user
-        user = User(
+        user = Users(
             email=email,
             username=email.split("@")[0],
             first_name=user_info.get("given_name"),

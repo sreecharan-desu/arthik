@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from database import get_db
-from models import Booking, Service, User
+from models import Booking, Service, Users
 from pydantic import BaseModel
 from datetime import datetime
 import hashlib
@@ -33,7 +33,7 @@ def create_booking(booking_in: BookingCreate, db: Session = Depends(get_db)):
         if not service:
             raise HTTPException(status_code=404, detail="Service not found")
         
-        user = db.query(User).filter(User.id == booking_in.user_id).first()
+        user = db.query(Users).filter(Users.id == booking_in.user_id).first()
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
 
@@ -49,7 +49,6 @@ def create_booking(booking_in: BookingCreate, db: Session = Depends(get_db)):
         db.flush() # Get booking.id
         
         # Prepare PayU hash
-        # sha512(merchant_key|txnid|amount|productinfo|firstname|email|salt)
         merchant_key = os.getenv("PAYU_MERCHANT_KEY", "")
         salt = os.getenv("PAYU_MERCHANT_SALT", "")
         txnid = f"TXN_{booking.id}_{int(datetime.now().timestamp())}"

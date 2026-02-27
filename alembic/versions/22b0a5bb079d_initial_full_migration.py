@@ -1,8 +1,8 @@
-"""initial_migration
+"""initial_full_migration
 
-Revision ID: 3e5c6119139d
+Revision ID: 22b0a5bb079d
 Revises: 
-Create Date: 2026-02-27 13:12:16.199884
+Create Date: 2026-02-27 13:23:34.733072
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = '3e5c6119139d'
+revision: str = '22b0a5bb079d'
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -71,6 +71,17 @@ def upgrade() -> None:
     op.create_index(op.f('ix_services_price'), 'services', ['price'], unique=False)
     op.create_index(op.f('ix_services_rating'), 'services', ['rating'], unique=False)
     op.create_index(op.f('ix_services_type'), 'services', ['type'], unique=False)
+    op.create_table('todos',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('title', sa.String(), nullable=True),
+    sa.Column('description', sa.String(), nullable=True),
+    sa.Column('priority', sa.Integer(), nullable=True),
+    sa.Column('complete', sa.Boolean(), nullable=True),
+    sa.Column('owner_id', sa.Integer(), nullable=True),
+    sa.ForeignKeyConstraint(['owner_id'], ['users.id'], ),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index(op.f('ix_todos_id'), 'todos', ['id'], unique=False)
     op.create_table('bookings',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('user_id', sa.Integer(), nullable=True),
@@ -103,6 +114,8 @@ def downgrade() -> None:
     op.drop_index(op.f('ix_bookings_booking_datetime'), table_name='bookings')
     op.drop_index('idx_service_datetime', table_name='bookings')
     op.drop_table('bookings')
+    op.drop_index(op.f('ix_todos_id'), table_name='todos')
+    op.drop_table('todos')
     op.drop_index(op.f('ix_services_type'), table_name='services')
     op.drop_index(op.f('ix_services_rating'), table_name='services')
     op.drop_index(op.f('ix_services_price'), table_name='services')

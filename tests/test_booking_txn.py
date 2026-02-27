@@ -14,6 +14,11 @@ def override_get_db():
         db = TestingSessionLocal()
         yield db
     finally:
+
+        # Reset autoincrement counters
+        db.execute("SELECT setval('users_id_seq', (SELECT MAX(id) FROM users));")
+        db.execute("SELECT setval('services_id_seq', (SELECT MAX(id) FROM services));")
+        db.execute("SELECT setval('bookings_id_seq', (SELECT MAX(id) FROM bookings));")
         db.close()
 
 app.dependency_overrides[get_db] = override_get_db

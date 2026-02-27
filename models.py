@@ -3,7 +3,7 @@ from sqlalchemy.orm import relationship
 from database import Base
 import datetime
 
-class User(Base):
+class Users(Base):
     __tablename__ = 'users'
 
     id = Column(Integer, primary_key=True, index=True)
@@ -18,6 +18,19 @@ class User(Base):
     room_number = Column(String, nullable=True)
 
     bookings = relationship("Booking", back_populates="user")
+    todos = relationship("Todos", back_populates="owner")
+
+class Todos(Base):
+    __tablename__ = 'todos'
+
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String)
+    description = Column(String)
+    priority = Column(Integer)
+    complete = Column(Boolean, default=False)
+    owner_id = Column(Integer, ForeignKey('users.id'))
+
+    owner = relationship("Users", back_populates="todos")
 
 class LocalProvider(Base):
     __tablename__ = 'local_providers'
@@ -62,10 +75,8 @@ class Booking(Base):
     invoice_path = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 
-    user = relationship("User", back_populates="bookings")
+    user = relationship("Users", back_populates="bookings")
     service = relationship("Service", back_populates="bookings")
 
 # Index for double booking prevention: service + datetime
-# We might need a more complex constraint for overlapping durations, 
-# but for now a simple index on service+time helps.
 Index('idx_service_datetime', Booking.service_id, Booking.booking_datetime)

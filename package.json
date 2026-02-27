@@ -2,17 +2,17 @@
   "name": "arthik-backend",
   "version": "1.0.0",
   "scripts": {
-    "seed": "ts-node --transpile-only seed.ts"
+    "seed": "ts-node seed.ts"
   },
   "dependencies": {
-    "@faker-js/faker": "^8.0.0",
+    "@faker-js/faker": "^8.4.1",
     "dotenv": "^16.0.0",
     "pg": "^8.11.0"
   },
   "devDependencies": {
+    "@types/node": "^20.19.35",
+    "@types/pg": "^8.16.0",
     "ts-node": "^10.9.0",
-    "typescript": "^5.0.0",
-    "@types/node": "^20.0.0",
-    "@types/pg": "^8.10.0"
+    "typescript": "^5.0.0"
   }
 }

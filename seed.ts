@@ -29,6 +29,7 @@ async function seed() {
     const roles = ["guest", "vendor", "admin"];
     const languages = ["en", "fr", "es", "ko", "hi"];
 
+    process.stdout.write("Seeding Users...");
     for (let i = 0; i < 25; i++) {
       const firstName = faker.person.firstName();
       const lastName = faker.person.lastName();
@@ -55,9 +56,12 @@ async function seed() {
           true,
         ],
       );
+      if (i % 5 === 0) process.stdout.write(".");
     }
+    console.log(" Done.");
 
     // 2. Seed Local Providers
+    process.stdout.write("Seeding Providers...");
     const cities = ["Hyderabad", "Bengaluru", "Goa", "Jaipur"];
     const providerIds: number[] = [];
     for (let i = 0; i < 12; i++) {
@@ -72,7 +76,9 @@ async function seed() {
         [name, city, faker.phone.number(), faker.internet.email()],
       );
       providerIds.push(res.rows[0].id);
+      process.stdout.write(".");
     }
+    console.log(" Done.");
 
     // 3. Seed Services
     const serviceTypes = ["TOUR", "TRANSPORT"];
@@ -85,6 +91,7 @@ async function seed() {
       "outdoor",
     ];
     const serviceIds: number[] = [];
+    process.stdout.write("Seeding Services...");
     for (let i = 0; i < 60; i++) {
       const providerId =
         providerIds[Math.floor(Math.random() * providerIds.length)];
@@ -120,12 +127,15 @@ async function seed() {
         ],
       );
       serviceIds.push(res.rows[0].id);
+      if (i % 10 === 0) process.stdout.write(".");
     }
+    console.log(" Done.");
 
     // 4. Seed Bookings
     const userRes = await client.query("SELECT id FROM users LIMIT 25");
     const userIds = userRes.rows.map((r) => r.id);
 
+    process.stdout.write("Seeding Bookings...");
     for (let i = 0; i < 30; i++) {
       const userId = userIds[Math.floor(Math.random() * userIds.length)];
       const serviceId =
@@ -145,7 +155,9 @@ async function seed() {
             `,
         [userId, serviceId, status, bookingDate, faker.lorem.words(5), amount],
       );
+      if (i % 5 === 0) process.stdout.write(".");
     }
+    console.log(" Done.");
 
     // Summary
     console.table({
