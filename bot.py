@@ -9,7 +9,7 @@ from pydantic import BaseModel
 from langgraph.graph import StateGraph, START, END
 from langgraph.graph.message import add_messages
 from langgraph.prebuilt import ToolNode, tools_condition
-from langgraph.checkpoint.memory import MemorySaver
+from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 
 from langchain_openai import ChatOpenAI
 from langchain_core.tools import tool
@@ -149,8 +149,7 @@ graph_builder.add_edge("summarize", "chatbot")
 graph_builder.add_conditional_edges("chatbot", tools_router, {"tool_node": "tool_node", END: END})
 graph_builder.add_edge("tool_node", "chatbot")
 
-memory = MemorySaver()
-graph = graph_builder.compile(checkpointer=memory)
+
 
 
 
@@ -161,57 +160,66 @@ def serialise_ai_message_chunk(chunk):
         raise TypeError(f"Object of type {type(chunk).__name__} is not correctly formatted for serialisation")
     
 
-async def generate_chat_responses(message: str, user_data: dict, checkpoint_id: Optional[str] = None):
+
+# We need the raw URL without the "+pg8000" dialect for psycopg
+DB_URI = os.getenv("DATABASE_URL")
+if DB_URI and DB_URI.startswith("postgres://"):
+    DB_URI = DB_URI.replace("postgres://", "postgresql://", 1)
+if DB_URI and "+pg8000" in DB_URI:
+    DB_URI = DB_URI.replace("+pg8000", "")
+    
+# Neon/Serverless Postgres requires SSL enabled
+if DB_URI and "?" not in DB_URI:
+    DB_URI += "?sslmode=require"
+
+
+async def generate_chat_responses(message: str, user_data: dict, checkpoint_id: str):
     """
     Main entry point for the FastAPI route to interact with the bot.
     """
-    is_new_conversation = checkpoint_id is None
+    config = {"configurable": {"thread_id": checkpoint_id}}
+    state_input = {
+        "messages": [HumanMessage(content=message)],
+        "user_data": user_data 
+    }
 
-    if is_new_conversation:
-        new_checkpoint_id = str(uuid4())
-        config = {"configurable": {"thread_id": new_checkpoint_id}}
+    # Open an async connection specifically for LangGraph's memory
+    async with AsyncPostgresSaver.from_conn_string(DB_URI) as checkpointer:
+        
+        
+        await checkpointer.setup() 
+        
+        # Compile the graph dynamically using the Postgres memory
+        graph = graph_builder.compile(checkpointer=checkpointer)
 
+        # Stream the events normally
         events = graph.astream_events(
-            {
-                "messages": [HumanMessage(content=message)],
-                "user_data": user_data,
-                "summary": "",
-                "summarized_until": 0,
-                "window_size": 6
-            },
+            state_input,
             version="v2",
             config=config
         )
-        yield f"data: {{\"type\": \"checkpoint\", \"checkpoint_id\": \"{new_checkpoint_id}\"}}\n\n"
-    else:
-        config = {"configurable": {"thread_id": checkpoint_id}}
-        events = graph.astream_events(
-            {"messages": [HumanMessage(content=message)]},
-            version="v2",
-            config=config
-        )
-    
-    async for event in events:
-        event_type = event["event"]
-        node_name = event.get("metadata", {}).get("langgraph_node")
-
-        if event_type == "on_chat_model_stream" and node_name == "chatbot":
-            chunk_content = serialise_ai_message_chunk(event["data"]["chunk"])
-            safe_content = chunk_content.replace("'", "\\'").replace("\n", "\\n").replace('"', '\\"')
-            yield f"data: {{\"type\": \"content\", \"content\": \"{safe_content}\"}}\n\n"
         
-        elif event_type == "on_chat_model_end" and node_name == "chatbot":
-            tool_calls = event["data"]["output"].tool_calls if hasattr(event["data"]["output"], "tool_calls") else []
-            search_calls = [call for call in tool_calls if call["name"] == "fetch_website_content"]
+        async for event in events:
+            event_type = event["event"]
+            node_name = event.get("metadata", {}).get("langgraph_node")
 
-            if search_calls:
-                search_query = search_calls[0]["args"].get("query", "")
-                safe_query = search_query.replace('"', '\\"').replace("'", "\\'").replace("\n", "\\n")
-                yield f"data: {{\"type\": \"search_start\", \"query\": \"{safe_query}\"}}\n\n"
+            if event_type == "on_chat_model_stream" and node_name == "chatbot":
+                chunk_content = serialise_ai_message_chunk(event["data"]["chunk"])
+                safe_content = chunk_content.replace("'", "\\'").replace("\n", "\\n").replace('"', '\\"')
+                yield f"data: {{\"type\": \"content\", \"content\": \"{safe_content}\"}}\n\n"
+            
+            elif event_type == "on_chat_model_end" and node_name == "chatbot":
+                tool_calls = event["data"]["output"].tool_calls if hasattr(event["data"]["output"], "tool_calls") else []
+                search_calls = [call for call in tool_calls if call["name"] == "fetch_website_content"]
+
+                if search_calls:
+                    search_query = search_calls[0]["args"].get("query", "")
+                    safe_query = search_query.replace('"', '\\"').replace("'", "\\'").replace("\n", "\\n")
+                    yield f"data: {{\"type\": \"search_start\", \"query\": \"{safe_query}\"}}\n\n"
+            
+            elif event_type == "on_tool_end" and event["name"] == "fetch_website_content":
+                urls = event["data"]["input"].get("url", "Nothing")
+                urls_json = json.dumps(urls)
+                yield f"data: {{\"type\": \"search_results\", \"urls\": {urls_json}}}\n\n"
         
-        elif event_type == "on_tool_end" and event["name"] == "fetch_website_content":
-            urls = event["data"]["input"].get("url", "Nothing")
-            urls_json = json.dumps(urls)
-            yield f"data: {{\"type\": \"search_results\", \"urls\": {urls_json}}}\n\n"
-    
-    yield f"data: {{\"type\": \"end\"}}\n\n"
+        yield f"data: {{\"type\": \"end\"}}\n\n"
