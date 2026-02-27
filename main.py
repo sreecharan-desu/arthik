@@ -28,8 +28,9 @@ app.include_router(users.router)
 app.include_router(agent.router)
 
 @app.get("/health")
+@app.get("/")
 def health_check():
-    return {"status": "healthy", "version": "1.0.0"}
+    return {"status": "healthy", "version": "1.0.0", "message": "Arthik Concierge Backend is running"}
 
 
 if __name__ == "__main__":
