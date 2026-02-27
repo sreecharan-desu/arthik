@@ -61,7 +61,7 @@ def create_booking(
         txnid = f"TXN_{mock_booking_id}_{int(datetime.now().timestamp())}"
         amount_str = f"{mock_price:.2f}"
         
-        hash_string = f"{merchant_key}|{txnid}|{amount_str}|{mock_name}|{user.first_name or 'Guest'}|{user.email}|||||||||||{salt}"
+        hash_string = f"{merchant_key}|{txnid}|{amount_str}|{mock_name}|{user.first_name or 'Guest'}|{user.email}|{mock_booking_id}||||||||||{salt}"
         payment_hash = hashlib.sha512(hash_string.encode()).hexdigest()
         
         return {
@@ -74,6 +74,7 @@ def create_booking(
                 "firstname": user.first_name or "Guest",
                 "email": user.email,
                 "phone": "9999999999", 
+                "udf1": str(mock_booking_id),
                 "surl": os.getenv("PAYU_SUCCESS_URL"),
                 "furl": os.getenv("PAYU_FAILURE_URL"),
                 "hash": payment_hash,
@@ -102,7 +103,7 @@ def create_booking(
     firstname = user.first_name or "Guest"
     email = user.email
     
-    hash_string = f"{merchant_key}|{txnid}|{amount}|{productinfo}|{firstname}|{email}|||||||||||{salt}"
+    hash_string = f"{merchant_key}|{txnid}|{amount}|{productinfo}|{firstname}|{email}|{booking.id}||||||||||{salt}"
     payment_hash = hashlib.sha512(hash_string.encode()).hexdigest()
     
     booking.payment_id = txnid
@@ -118,6 +119,7 @@ def create_booking(
             "firstname": firstname,
             "email": email,
             "phone": "9999999999", # placeholder
+            "udf1": str(booking.id),
             "surl": os.getenv("PAYU_SUCCESS_URL"),
             "furl": os.getenv("PAYU_FAILURE_URL"),
             "hash": payment_hash,
