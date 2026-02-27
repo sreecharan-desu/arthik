@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 from models import Users
 from passlib.context import CryptContext
@@ -176,4 +177,10 @@ async def google_callback(code: str = None, payload: GoogleAuthCode = None, db: 
         db.refresh(user)
     
     token = create_access_token(user.username, user.id, user.role, timedelta(minutes=60))
+    
+    # If it's a GET request (browser redirect), and we have a FRONTEND_URL, redirect back
+    frontend_url = os.getenv("FRONTEND_URL")
+    if code and frontend_url:
+        return RedirectResponse(url=f"{frontend_url}/auth/callback?token={token}")
+        
     return {"access_token": token, "token_type": "bearer"}
