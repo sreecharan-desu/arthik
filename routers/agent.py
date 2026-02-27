@@ -58,7 +58,7 @@ async def chat_endpoint(
         generate_chat_responses(
             message=request.message, 
             user_data=user_data, 
-            checkpoint_id=user.id
+            checkpoint_id=str(user.get('id'))
         ),
         media_type="text/event-stream"
     )
