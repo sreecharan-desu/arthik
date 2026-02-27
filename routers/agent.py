@@ -27,6 +27,7 @@ user_dependency = Annotated[dict, Depends(get_current_user)]
 
 class ChatRequest(BaseModel):
     message: str = Field(min_length=1)
+    checkpoint_id: Optional[str] = None
 
 
 @router.post("/chat", status_code=status.HTTP_200_OK)
@@ -53,12 +54,13 @@ async def chat_endpoint(
         "room_number": user_record.room_number
     }
 
+    checkpoint = request.checkpoint_id or str(user_record.id)
     
     return StreamingResponse(
         generate_chat_responses(
             message=request.message, 
             user_data=user_data, 
-            checkpoint_id=str(user.get('id'))
+            checkpoint_id=checkpoint
         ),
         media_type="text/event-stream"
     )
