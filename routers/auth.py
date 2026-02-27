@@ -111,6 +111,7 @@ async def login_for_access_token(form_data: Annotated[OAuth2PasswordRequestForm,
     return {'access_token': token, 'token_type': 'bearer'}
 
 @router.get("/google/login")
+@router.post("/google/login")
 def google_login():
     client_id = os.getenv("GOOGLE_CLIENT_ID")
     redirect_uri = f"{os.getenv('APP_URL')}/auth/google/callback"
@@ -119,16 +120,22 @@ def google_login():
     }
 
 @router.get("/google/callback")
-async def google_callback(code: str, db: Session = Depends(get_db)):
+@router.post("/google/callback")
+async def google_callback(code: str = None, payload: GoogleAuthCode = None, db: Session = Depends(get_db)):
     client_id = os.getenv("GOOGLE_CLIENT_ID")
     client_secret = os.getenv("GOOGLE_CLIENT_SECRET")
     redirect_uri = f"{os.getenv('APP_URL')}/auth/google/callback"
+    
+    # Extract code from query or body payload
+    auth_code = code if code else (payload.code if payload else None)
+    if not auth_code:
+        raise HTTPException(status_code=400, detail="Missing authorization code")
     
     # Exchange code for token
     token_resp = requests.post("https://oauth2.googleapis.com/token", data={
         "client_id": client_id,
         "client_secret": client_secret,
-        "code": code,
+        "code": auth_code,
         "grant_type": "authorization_code",
         "redirect_uri": redirect_uri
     })
