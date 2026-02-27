@@ -26,7 +26,11 @@ summarizer = ChatOpenAI(base_url="https://inference.baseten.co/v1", model="opena
 llm = ChatOpenAI(base_url="https://inference.baseten.co/v1", model="moonshotai/Kimi-K2-Instruct-0905", api_key=baseten_api_key)
 
 
-serper = GoogleSerperAPIWrapper()
+try:
+    serper = GoogleSerperAPIWrapper()
+except Exception:
+    serper = None
+    print("WARNING: GoogleSerperAPIWrapper failed to initialize.")
 
 @tool
 def search_places(query: str) -> str:

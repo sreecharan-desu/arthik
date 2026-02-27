@@ -12,8 +12,9 @@ except ImportError:
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 
-# SQLite fix for multi-threading
-connect_args = {}
+if not DATABASE_URL:
+    DATABASE_URL = "sqlite:///:memory:"
+    connect_args = {"check_same_thread": False}
 
 # Vercel/Serverless Fix: Use pg8000 (pure python) for stability
 if DATABASE_URL.startswith("postgres://") or DATABASE_URL.startswith("postgresql://"):
@@ -34,7 +35,11 @@ if DATABASE_URL.startswith("postgres://") or DATABASE_URL.startswith("postgresql
     ssl_context.verify_mode = ssl.CERT_NONE
     connect_args["ssl_context"] = ssl_context
 
-engine = create_engine(DATABASE_URL, connect_args=connect_args)
+try:
+    engine = create_engine(DATABASE_URL, connect_args=connect_args)
+except Exception as e:
+    print(f"Warning: Failed to create engine for {DATABASE_URL}: {e}")
+    engine = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False})
 
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
