@@ -4,7 +4,7 @@ from database import get_db
 from models import Service
 from pydantic import BaseModel
 from typing import List, Dict
-from .auth import get_current_user
+from internal_auth import verify_internal_key
 
 router = APIRouter(prefix="/vendor", tags=["vendor"])
 
@@ -31,16 +31,15 @@ class ServiceUpdate(BaseModel):
     is_available: bool = None
 
 @router.post("/update")
-async def update_service(update: ServiceUpdate, db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
-    # Role Check: Only vendors or admins
-    if current_user.get("role") not in ["vendor", "admin"]:
-        raise HTTPException(status_code=403, detail="Only vendors or admins can update services")
-
+async def update_service(
+    update: ServiceUpdate, 
+    db: Session = Depends(get_db), 
+    _auth: bool = Depends(verify_internal_key)
+):
+    # For agent-facing vendor API, we assume the agent handles role validation
     service = db.query(Service).filter(Service.id == update.service_id).first()
     if not service:
         raise HTTPException(status_code=404, detail="Service not found")
-    
-    # Optional: Check if service belongs to this vendor if we had provider_id mapping
     
     if update.price is not None:
         service.price = update.price
