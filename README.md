@@ -1,6 +1,6 @@
 ---
 title: Arthik Concierge
-emoji: 🏨
+emoji:
 colorFrom: blue
 colorTo: gray
 sdk: docker

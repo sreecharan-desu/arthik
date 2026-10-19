@@ -93,7 +93,7 @@ async def book_best_hotel(location: str, config: RunnableConfig) -> str:
             
             if booking_res.status_code == 200:
                 booking_data = booking_res.json()
-                print("[TOOL LOG] ✅ Booking Successful!")
+                print("[TOOL LOG] Booking Successful!")
                 return json.dumps({
                     "status": "success",
                     "hotel_name": best_hotel["name"],
