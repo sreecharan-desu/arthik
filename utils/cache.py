@@ -13,12 +13,12 @@ try:
         redis_client = redis.from_url(redis_url, decode_responses=True)
         # Ping to check connection
         redis_client.ping()
-        print("✅ Redis cache connected successfully.")
+        print("Redis cache connected successfully.")
     else:
         redis_client = None
-        print("⚠️  REDIS_URL not set. Running without cache.")
+        print("REDIS_URL not set. Running without cache.")
 except Exception as e:
-    print(f"❌ Failed to connect to Redis: {e}")
+    print(f"Failed to connect to Redis: {e}")
     redis_client = None
 
 def get_cache(key: str):
