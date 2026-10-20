@@ -7,7 +7,8 @@ from database import get_db
 from sqlalchemy.orm import Session
 from typing import Annotated
 from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
-from jose import jwt, JWTError
+import jwt
+from jwt import PyJWTError as JWTError
 from datetime import timedelta, datetime, timezone
 import os
 import requests
