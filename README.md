@@ -36,3 +36,7 @@ make test                    # pytest tests/
 ## env
 
 copy `.env.example` to `.env`. it lists `DATABASE_URL`, `SECRET_KEY`, the payu keys and urls, the google oauth client, `BASETEN_API_KEY`, `INTERNAL_API_KEY` and `REDIS_URL`.
+
+---
+
+built by [sreecharan desu](https://www.sreecharandesu.in) · [more projects](https://www.sreecharandesu.in/work)
